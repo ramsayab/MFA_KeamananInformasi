@@ -9,6 +9,8 @@ Petunjuk Pengerjaan:
 4. Fungsi verify_password harus mengembalikan nilai True jika password cocok, dan False jika tidak.
 """
 
+import bcrypt
+
 def hash_password(password: str) -> str:
     """
     Menghasilkan hash aman dari password mentah.
@@ -19,15 +21,10 @@ def hash_password(password: str) -> str:
     Mengembalikan:
     - str: Hasil hash password dalam bentuk string.
     """
-    # TODO: Anggota 1 harus mengganti kode di bawah ini dengan bcrypt hashing yang sesungguhnya.
-    # Contoh implementasi bcrypt:
-    # import bcrypt
-    # salt = bcrypt.gensalt()
-    # return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
-    
-    # MOCK IMPLEMENTATION (Belum selesai / Sementara):
-    # Mengembalikan string terbalik sebagai hash tiruan agar sistem bisa berjalan sebelum Anda menyelesaikannya.
-    return f"mock_hash_{password[::-1]}"
+    password_bytes = password.encode("utf-8")
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password_bytes, salt)
+    return hashed_password.decode("utf-8")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
@@ -40,11 +37,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Mengembalikan:
     - bool: True jika password cocok dengan hash, False jika tidak.
     """
-    # TODO: Anggota 1 harus mengganti kode di bawah ini dengan verifikasi bcrypt yang sesungguhnya.
-    # Contoh implementasi bcrypt:
-    # import bcrypt
-    # return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-    
-    # MOCK IMPLEMENTATION (Belum selesai / Sementara):
-    # Memeriksa kesesuaian menggunakan metode mock yang sama dengan hash_password.
-    return hashed_password == f"mock_hash_{plain_password[::-1]}"
+    if not isinstance(plain_password, str) or not isinstance(hashed_password, str):
+        return False
+    if not hashed_password:
+        return False
+
+    try:
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
+        )
+    except (TypeError, ValueError):
+        return False
