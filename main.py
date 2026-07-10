@@ -71,9 +71,9 @@ def startup_event():
         # Username & Hash Password awal (berbasis reverse mock hash di auth_hash.py)
         # Anggota 1 harus memperbarui baris ini setelah mengimplementasikan bcrypt sesungguhnya!
         cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
-                       ("budi", "mock_hash_321idub", "customer")) # Password asli: budi123
+                       ("budi", auth_hash.hash_password("budi123"), "customer")) # Password asli: budi123
         cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
-                       ("admin", "mock_hash_321nimda", "admin")) # Password asli: admin123
+                       ("admin", auth_hash.hash_password("admin123"), "admin")) # Password asli: admin123
         
         # Seeding saldo awal untuk testing (Anggota 4)
         cursor.execute("INSERT INTO balances (username, balance) VALUES (?, ?)", ("budi", 500000.0))
