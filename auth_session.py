@@ -1,27 +1,21 @@
 """
-TUGAS ANGGOTA 3: MANAJEMEN SESI (Session Management) - VERSI STUB / BELUM SELESAI
+TUGAS ANGGOTA 3: MANAJEMEN SESI (Session Management) - IMPLEMENTASI REAL SQLITE
 ================================================================================
-Petunjuk Pengerjaan:
-1. Gantikan fungsi-fungsi di bawah ini dengan implementasi manajemen sesi yang aman menggunakan database SQLite.
-2. Anda harus menghubungkan ke database SQLite "bank.db" untuk mendaftarkan dan memverifikasi token sesi.
-3. Skema tabel 'sessions' yang telah disediakan di database bank.db:
-   - session_token (TEXT, Primary Key)
-   - username (TEXT)
-   - role (TEXT)
-   - expires_at (REAL - epoch timestamp dari time.time())
-4. Alur Pembuatan Sesi (`create_session`):
-   - Buat token unik (misalnya UUID menggunakan library bawaan `uuid`, atau gunakan token JWT yang ditandatangani).
-   - Simpan data sesi (token, username, role, expires_at) ke tabel `sessions` di `bank.db`.
-   - Kembalikan token sesi dalam tipe data `str`.
-5. Alur Verifikasi Sesi (`verify_session`):
-   - Query data sesi dari tabel `sessions` berdasarkan `session_token`.
-   - Jika sesi ditemukan dan belum melewati waktu kedaluwarsa (`expires_at`), kembalikan dictionary data sesi: `{"user_id": username, "role": role}`.
-   - Jika tidak ditemukan atau telah kedaluwarsa, hapus data kedaluwarsa tersebut dari database, lalu kembalikan `None`.
-6. Alur Penghapusan Sesi (`destroy_session`):
-   - Hapus (DELETE) data sesi dari tabel `sessions` berdasarkan `session_token`.
-   - Kembalikan `True` jika berhasil dihapus, atau `False` jika tidak ditemukan.
+Implementasi manajemen sesi yang aman menggunakan database SQLite "bank.db".
 """
+
 import time
+import sqlite3
+import uuid
+
+DB_FILE = "bank.db"
+SESSION_TIMEOUT = 600  # 30 menit (dalam detik)
+
+def _get_conn() -> sqlite3.Connection:
+    """Buka koneksi SQLite dengan foreign-key check aktif."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
 
 def create_session(user_id: str, role: str) -> str:
     """
@@ -34,11 +28,20 @@ def create_session(user_id: str, role: str) -> str:
     Mengembalikan:
     - str: Token sesi yang dihasilkan untuk dikirim ke client.
     """
-    # TODO: Anggota 3 harus menulis logika pembuatan token sesi dan menyimpannya ke tabel `sessions` di SQLite.
+    session_token = str(uuid.uuid4())
+    expires_at = time.time() + SESSION_TIMEOUT
     
-    # MOCK IMPLEMENTATION (Belum selesai / Sementara):
-    # Mengembalikan token statis tiruan agar sistem bisa berjalan untuk pengetesan.
-    return "mock_session_token_123"
+    conn = _get_conn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO sessions (session_token, username, role, expires_at) VALUES (?, ?, ?, ?)",
+            (session_token, user_id, role, expires_at)
+        )
+        conn.commit()
+        return session_token
+    finally:
+        conn.close()
 
 def verify_session(session_token: str) -> dict | None:
     """
@@ -51,22 +54,37 @@ def verify_session(session_token: str) -> dict | None:
     - dict | None: Dictionary berisi {"user_id": ..., "role": ...} jika valid,
                    atau None jika token tidak valid/kedaluwarsa.
     """
-    # TODO: Anggota 3 harus menulis logika verifikasi sesi dari database SQLite.
-    
-    # MOCK IMPLEMENTATION (Belum selesai / Sementara):
-    # Menyimulasikan verifikasi token statis.
-    # Jika token cocok dengan mock token, kembalikan data sesi tiruan.
-    if session_token == "mock_session_token_123":
-        return {
-            "user_id": "budi",
-            "role": "customer"
-        }
-    elif session_token == "mock_session_token_admin":
-        return {
-            "user_id": "admin",
-            "role": "admin"
-        }
-    return None
+    now = time.time()
+    conn = _get_conn()
+    try:
+        cursor = conn.cursor()
+        # Bersihkan sesi-sesi lain yang sudah kedaluwarsa secara berkala
+        cursor.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))
+        
+        # Cari sesi dengan token yang diberikan
+        cursor.execute(
+            "SELECT username, role, expires_at FROM sessions WHERE session_token = ?",
+            (session_token,)
+        )
+        row = cursor.fetchone()
+        
+        if row:
+            username, role, expires_at = row
+            # Jika terdaftar dan belum kedaluwarsa, perbarui waktu kedaluwarsanya (sliding window)
+            new_expires = now + SESSION_TIMEOUT
+            cursor.execute(
+                "UPDATE sessions SET expires_at = ? WHERE session_token = ?",
+                (new_expires, session_token)
+            )
+            conn.commit()
+            return {
+                "user_id": username,
+                "role": role
+            }
+        conn.commit()
+        return None
+    finally:
+        conn.close()
 
 def destroy_session(session_token: str) -> bool:
     """
@@ -78,8 +96,12 @@ def destroy_session(session_token: str) -> bool:
     Mengembalikan:
     - bool: True jika berhasil dihapus, False jika tidak.
     """
-    # TODO: Anggota 3 harus menulis logika penghapusan baris sesi dari database SQLite.
-    
-    # MOCK IMPLEMENTATION (Belum selesai / Sementara):
-    # Selalu mengembalikan True untuk simulasi logout sukses.
-    return True
+    conn = _get_conn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM sessions WHERE session_token = ?", (session_token,))
+        deleted = cursor.rowcount > 0
+        conn.commit()
+        return deleted
+    finally:
+        conn.close()

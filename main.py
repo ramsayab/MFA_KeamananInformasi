@@ -68,15 +68,11 @@ def startup_event():
     # Seeding data bawaan jika database masih kosong
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
-        # Username & Hash Password awal (berbasis reverse mock hash di auth_hash.py)
-        # Anggota 1 harus memperbarui baris ini setelah mengimplementasikan bcrypt sesungguhnya!
-        cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
-                       ("budi", auth_hash.hash_password("budi123"), "customer")) # Password asli: budi123
+        # Seeding satu-satunya akun admin bawaan
         cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
                        ("admin", auth_hash.hash_password("admin123"), "admin")) # Password asli: admin123
         
-        # Seeding saldo awal untuk testing (Anggota 4)
-        cursor.execute("INSERT INTO balances (username, balance) VALUES (?, ?)", ("budi", 500000.0))
+        # Seeding saldo awal untuk testing
         cursor.execute("INSERT INTO balances (username, balance) VALUES (?, ?)", ("admin", 0.0))
         
     conn.commit()
@@ -85,6 +81,10 @@ def startup_event():
 
 # ================= PYDANTIC SCHEMAS =================
 class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class RegisterRequest(BaseModel):
     username: str
     password: str
 
@@ -119,6 +119,50 @@ def get_current_user(authorization: str = Header(None)) -> dict:
 def get_home(request: Request):
     """Menampilkan halaman utama Frontend Bank Digital."""
     return templates.TemplateResponse(request=request, name="index.html")
+
+@app.post("/api/register")
+def register(req: RegisterRequest):
+    """
+    Registrasi user baru dengan role customer secara otomatis.
+    """
+    username = req.username.strip().lower()
+    password = req.password
+    
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="Username minimal terdiri dari 3 karakter.")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password minimal terdiri dari 6 karakter.")
+        
+    conn = sqlite3.connect("bank.db")
+    cursor = conn.cursor()
+    
+    try:
+        # Check if user already exists
+        cursor.execute("SELECT username FROM users WHERE username = ?", (username,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Username sudah terdaftar. Silakan pilih username lain.")
+        
+        # Hash the password
+        hashed = auth_hash.hash_password(password)
+        
+        # Insert user into users
+        cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                       (username, hashed, "customer"))
+        
+        # Seed initial balance (Rp 100.000,00)
+        cursor.execute("INSERT INTO balances (username, balance) VALUES (?, ?)", (username, 100000.0))
+        
+        conn.commit()
+    except sqlite3.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal melakukan registrasi: {str(e)}")
+    finally:
+        conn.close()
+        
+    return {
+        "success": True,
+        "message": f"Registrasi berhasil! Akun {username} siap digunakan."
+    }
 
 @app.post("/api/login")
 def login(req: LoginRequest):
@@ -262,6 +306,75 @@ def logout(authorization: str = Header(None)):
         token = authorization.split(" ")[1]
         auth_session.destroy_session(token)
     return {"success": True, "message": "Logout sukses."}
+
+@app.get("/api/admin/users")
+def admin_get_users(current_user: dict = Depends(get_current_user)):
+    """
+    Mengambil daftar seluruh nasabah beserta saldo rekening mereka (Hanya untuk Admin).
+    """
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Hak akses ditolak. Hanya untuk administrator.")
+        
+    conn = sqlite3.connect("bank.db")
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT u.username, u.role, COALESCE(b.balance, 0.0) 
+            FROM users u
+            LEFT JOIN balances b ON u.username = b.username
+            WHERE u.role != 'admin'
+        """)
+        rows = cursor.fetchall()
+        users_list = [{"username": r[0], "role": r[1], "balance": r[2]} for r in rows]
+        return {"success": True, "users": users_list}
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Gagal memuat data nasabah: {str(e)}")
+    finally:
+        conn.close()
+
+@app.get("/api/admin/transactions")
+def admin_get_transactions(current_user: dict = Depends(get_current_user)):
+    """
+    Mengambil seluruh riwayat transaksi audit trail sistem (Hanya untuk Admin).
+    """
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Hak akses ditolak. Hanya untuk administrator.")
+        
+    conn = sqlite3.connect("bank.db")
+    cursor = conn.cursor()
+    try:
+        # Buat tabel transaksi jika belum ada agar query tidak menghasilkan error
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                type TEXT NOT NULL,
+                amount REAL NOT NULL,
+                balance_after REAL NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            SELECT id, username, type, amount, balance_after, created_at 
+            FROM transactions 
+            ORDER BY created_at DESC
+        """)
+        rows = cursor.fetchall()
+        tx_list = [
+            {
+                "id": r[0],
+                "username": r[1],
+                "type": r[2],
+                "amount": r[3],
+                "balance_after": r[4],
+                "created_at": r[5]
+            } for r in rows
+        ]
+        return {"success": True, "transactions": tx_list}
+    except sqlite3.Error as e:
+        raise HTTPException(status_code=500, detail=f"Gagal memuat log transaksi: {str(e)}")
+    finally:
+        conn.close()
 
 # ================= RUN SERVER DIRECTLY =================
 if __name__ == "__main__":

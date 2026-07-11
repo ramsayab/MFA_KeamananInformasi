@@ -664,7 +664,6 @@
             <!-- Test Mode Banner -->
             <div class="test-badge">
                 <div><i class="fa-solid fa-circle-info"></i> <strong>MODE PENGUJIAN KREDENSIAL:</strong></div>
-                <div>• Nasabah (Customer): <code>budi</code> / <code>budi123</code></div>
                 <div>• Pengawas (Admin): <code>admin</code> / <code>admin123</code></div>
             </div>
 
@@ -689,6 +688,49 @@
                 <button type="submit" class="btn" id="btn-login-submit">
                     <span>Masuk Aman</span>
                     <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="showCard('card-register')">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Daftar Akun Baru</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- ================= CARD 4: REGISTER ================= -->
+        <div id="card-register" class="card">
+            <div class="brand">
+                <i class="fa-solid fa-user-plus brand-logo"></i>
+                <span class="brand-name">AURA BANK</span>
+            </div>
+            <h2 class="card-title">Daftar Akun Baru</h2>
+            <p class="card-subtitle">Buat akun nasabah AURA BANK dan mulai kelola keuangan digital Anda secara aman.</p>
+
+            <form id="form-register" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-user input-icon"></i>
+                        <input type="text" id="register-username" class="form-input" placeholder="Pilih username unik" required autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <input type="password" id="register-password" class="form-input" placeholder="Minimal 6 karakter" required autocomplete="new-password">
+                        <i class="fa-regular fa-eye password-toggle" onclick="togglePasswordVisibility('register-password', this)"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" id="btn-register-submit">
+                    <span>Daftar Sekarang</span>
+                    <i class="fa-solid fa-circle-check"></i>
+                </button>
+
+                <button type="button" class="btn btn-secondary" onclick="showCard('card-login')">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Kembali ke Login</span>
                 </button>
             </form>
         </div>
@@ -827,6 +869,36 @@
                     <div class="tx-empty" id="tx-empty-text">Belum ada riwayat transaksi pada sesi ini.</div>
                 </div>
             </div>
+
+            <!-- Admin Panel Area -->
+            <div id="admin-area" style="display: none; margin-top: 20px;">
+                <h3 style="font-family: var(--font-display); font-size: 16px; margin-bottom: 15px; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-user-shield"></i> Panel Kontrol Administrator
+                </h3>
+                
+                <div class="tabs-header">
+                    <button class="tab-btn active" id="tab-admin-users" onclick="switchAdminTab('users')">
+                        <i class="fa-solid fa-users"></i> Daftar Nasabah
+                    </button>
+                    <button class="tab-btn" id="tab-admin-txs" onclick="switchAdminTab('txs')">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> Audit Log Transaksi
+                    </button>
+                </div>
+
+                <!-- Admin: Users List -->
+                <div id="admin-users-container" class="action-form active">
+                    <div style="max-height: 250px; overflow-y: auto;" id="admin-users-list">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Admin: Audit Log -->
+                <div id="admin-txs-container" class="action-form">
+                    <div style="max-height: 250px; overflow-y: auto;" id="admin-txs-list">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -944,6 +1016,54 @@
 
         // --- AUTH & TRANS ROUTINES ---
 
+        // Register Submit Handler
+        async function handleRegister(e) {
+            e.preventDefault();
+            const usernameInput = document.getElementById('register-username');
+            const passwordInput = document.getElementById('register-password');
+            const submitBtn = document.getElementById('btn-register-submit');
+
+            if (usernameInput.value.trim().length < 3) {
+                showToast('Username minimal terdiri dari 3 karakter.', 'error');
+                return;
+            }
+            if (passwordInput.value.length < 6) {
+                showToast('Password minimal terdiri dari 6 karakter.', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i><span>Mendaftar...</span>`;
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: usernameInput.value,
+                        password: passwordInput.value
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    showToast(result.message, 'success');
+                    usernameInput.value = '';
+                    passwordInput.value = '';
+                    showCard('card-login');
+                } else {
+                    showToast(result.detail || result.message || 'Registrasi gagal.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Koneksi ke server gagal.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>Daftar Sekarang</span><i class="fa-solid fa-circle-check"></i>`;
+            }
+        }
+
         // Login Submit Handler (Step 1)
         async function handleLogin(e) {
             e.preventDefault();
@@ -1054,27 +1174,32 @@
                     
                     const roleBadge = document.getElementById('display-role');
                     roleBadge.innerText = result.role.toUpperCase();
+                    
+                    const balanceCard = document.querySelector('.balance-card');
+                    const txArea = document.getElementById('transaction-area');
+                    const txSection = document.querySelector('.transaction-section');
+                    const adminArea = document.getElementById('admin-area');
+
                     if (result.role === 'admin') {
                         roleBadge.className = 'role-badge role-admin';
+                        if (balanceCard) balanceCard.style.display = 'none';
+                        if (txArea) txArea.style.display = 'none';
+                        if (txSection) txSection.style.display = 'none';
+                        if (adminArea) {
+                            adminArea.style.display = 'block';
+                            loadAdminData();
+                        }
                     } else {
                         roleBadge.className = 'role-badge role-customer';
-                    }
+                        if (balanceCard) balanceCard.style.display = 'block';
+                        if (txArea) txArea.style.display = 'block';
+                        if (txSection) txSection.style.display = 'block';
+                        if (adminArea) adminArea.style.display = 'none';
 
-                    // Save balance state
-                    balanceValue = result.balance;
-                    userRole = result.role;
-                    updateBalanceUI();
-
-                    // Block/unblock UI actions based on Role
-                    const txArea = document.getElementById('transaction-area');
-                    if (result.role === 'admin') {
-                        txArea.innerHTML = `
-                            <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 18px; text-align: center; color: var(--text-muted); font-size: 14px;">
-                                <i class="fa-solid fa-user-gear" style="font-size: 24px; color: var(--secondary); margin-bottom: 8px; display: block;"></i>
-                                Akun Anda terdeteksi sebagai <strong>ADMINISTRATOR</strong>.
-                                <br>Sesuai kepatuhan, transaksi keuangan diblokir bagi administrator.
-                            </div>
-                        `;
+                        // Save balance state
+                        balanceValue = result.balance;
+                        userRole = result.role;
+                        updateBalanceUI();
                     }
 
                     showCard('card-dashboard');
@@ -1114,11 +1239,111 @@
 
         // Dashboard Tabs Setup
         function switchTab(action) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.action-form').forEach(form => form.classList.remove('active'));
+            document.querySelectorAll('#transaction-area .tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('#transaction-area .action-form').forEach(form => form.classList.remove('active'));
 
             document.getElementById(`tab-${action}`).classList.add('active');
             document.getElementById(`form-${action}-container`).classList.add('active');
+        }
+
+        // Switch between Admin Tabs (Users vs Txs)
+        function switchAdminTab(action) {
+            document.querySelectorAll('#admin-area .tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('#admin-area .action-form').forEach(form => form.classList.remove('active'));
+
+            document.getElementById(`tab-admin-${action}`).classList.add('active');
+            document.getElementById(`admin-${action}-container`).classList.add('active');
+        }
+
+        // Load Admin Data (Users list & Audit Logs)
+        async function loadAdminData() {
+            loadAdminUsers();
+            loadAdminTransactions();
+        }
+
+        async function loadAdminUsers() {
+            const listContainer = document.getElementById('admin-users-list');
+            listContainer.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Memuat data nasabah...</div>`;
+            try {
+                const response = await fetch('/api/admin/users', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    if (result.users.length === 0) {
+                        listContainer.innerHTML = `<div class="tx-empty">Belum ada nasabah terdaftar.</div>`;
+                        return;
+                    }
+                    listContainer.innerHTML = result.users.map(u => `
+                        <div class="transaction-item" style="margin-bottom: 8px;">
+                            <div class="tx-info">
+                                <span class="tx-type" style="color: var(--text-main);"><i class="fa-regular fa-user" style="margin-right: 6px; color: var(--primary);"></i>${u.username}</span>
+                                <span class="tx-time">Tipe Peran: Nasabah</span>
+                            </div>
+                            <div class="tx-amount tx-deposit" style="font-size: 14px; font-family: var(--font-display);">
+                                Rp ${formatRupiah(u.balance)}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    listContainer.innerHTML = `<div class="tx-empty" style="color: var(--danger);">Gagal memuat data nasabah.</div>`;
+                }
+            } catch (err) {
+                console.error(err);
+                listContainer.innerHTML = `<div class="tx-empty" style="color: var(--danger);">Kesalahan koneksi ke server.</div>`;
+            }
+        }
+
+        async function loadAdminTransactions() {
+            const listContainer = document.getElementById('admin-txs-list');
+            listContainer.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Memuat audit log...</div>`;
+            try {
+                const response = await fetch('/api/admin/transactions', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${sessionToken}` }
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    if (result.transactions.length === 0) {
+                        listContainer.innerHTML = `<div class="tx-empty">Belum ada riwayat transaksi sistem.</div>`;
+                        return;
+                    }
+                    listContainer.innerHTML = result.transactions.map(t => {
+                        const isDeposit = t.type === 'deposit';
+                        const typeLabel = isDeposit ? 'Setor Tunai' : 'Tarik Tunai';
+                        const typeClass = isDeposit ? 'tx-deposit' : 'tx-withdraw';
+                        const prefix = isDeposit ? '+' : '-';
+                        
+                        // Parse timestamp
+                        let timeStr = t.created_at;
+                        try {
+                            const date = new Date(t.created_at + 'Z');
+                            timeStr = date.toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+                        } catch (e) {}
+
+                        return `
+                            <div class="transaction-item" style="margin-bottom: 8px;">
+                                <div class="tx-info">
+                                    <span class="tx-type" style="color: var(--text-main); font-size: 13px;">
+                                        <strong style="color: var(--secondary);">${t.username}</strong>: ${typeLabel}
+                                    </span>
+                                    <span class="tx-time">${timeStr}</span>
+                                </div>
+                                <div class="tx-amount ${typeClass}" style="font-size: 14px; text-align: right; font-family: var(--font-display);">
+                                    ${prefix} Rp ${formatRupiah(t.amount)}
+                                    <div style="font-size: 10px; color: var(--text-muted); font-weight: normal; font-family: var(--font-body);">Saldo sisa: Rp ${formatRupiah(t.balance_after)}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    listContainer.innerHTML = `<div class="tx-empty" style="color: var(--danger);">Gagal memuat audit log.</div>`;
+                }
+            } catch (err) {
+                console.error(err);
+                listContainer.innerHTML = `<div class="tx-empty" style="color: var(--danger);">Kesalahan koneksi ke server.</div>`;
+            }
         }
 
         function setAmount(type, amount) {
