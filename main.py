@@ -4,6 +4,10 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import sqlite3
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Import 4 berkas fitur modular (tugas masing-masing anggota)
 import auth_hash
@@ -30,10 +34,22 @@ def startup_event():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
+            email TEXT,
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL
         )
     """)
+    
+    # Migrasi aman: tambahkan kolom email jika tabel users sudah ada sebelumnya tanpa kolom email
+    try:
+        cursor.execute("SELECT email FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN email TEXT")
+            conn.commit()
+            print("[SERVER] Kolom 'email' berhasil ditambahkan ke tabel 'users'.")
+        except sqlite3.Error as e:
+            print(f"[SERVER ERROR] Gagal menambahkan kolom email: {e}")
     
     # 2. Tabel balances (Untuk Anggota 4)
     cursor.execute("""
@@ -68,9 +84,9 @@ def startup_event():
     # Seeding data bawaan jika database masih kosong
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
-        # Seeding satu-satunya akun admin bawaan
-        cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
-                       ("admin", auth_hash.hash_password("admin123"), "admin")) # Password asli: admin123
+        # Seeding satu-satunya akun admin bawaan dengan email default
+        cursor.execute("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)", 
+                       ("admin", "admin@gmail.com", auth_hash.hash_password("admin123"), "admin")) # Password asli: admin123
         
         # Seeding saldo awal untuk testing
         cursor.execute("INSERT INTO balances (username, balance) VALUES (?, ?)", ("admin", 0.0))
@@ -86,6 +102,7 @@ class LoginRequest(BaseModel):
 
 class RegisterRequest(BaseModel):
     username: str
+    email: str
     password: str
 
 class VerifyOTPRequest(BaseModel):
@@ -123,13 +140,16 @@ def get_home(request: Request):
 @app.post("/api/register")
 def register(req: RegisterRequest):
     """
-    Registrasi user baru dengan role customer secara otomatis.
+    Registrasi user baru dengan role customer secara otomatis dengan email.
     """
     username = req.username.strip().lower()
+    email = req.email.strip().lower()
     password = req.password
     
     if len(username) < 3:
         raise HTTPException(status_code=400, detail="Username minimal terdiri dari 3 karakter.")
+    if len(email) < 5 or "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="Alamat email tidak valid. Masukkan email Gmail yang benar.")
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="Password minimal terdiri dari 6 karakter.")
         
@@ -141,13 +161,18 @@ def register(req: RegisterRequest):
         cursor.execute("SELECT username FROM users WHERE username = ?", (username,))
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Username sudah terdaftar. Silakan pilih username lain.")
+            
+        # Check if email already exists
+        cursor.execute("SELECT username FROM users WHERE email = ?", (email,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Alamat email sudah digunakan. Silakan gunakan email lain.")
         
         # Hash the password
         hashed = auth_hash.hash_password(password)
         
-        # Insert user into users
-        cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                       (username, hashed, "customer"))
+        # Insert user into users with email
+        cursor.execute("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)",
+                       (username, email, hashed, "customer"))
         
         # Seed initial balance (Rp 100.000,00)
         cursor.execute("INSERT INTO balances (username, balance) VALUES (?, ?)", (username, 100000.0))
@@ -163,7 +188,7 @@ def register(req: RegisterRequest):
         "success": True,
         "message": f"Registrasi berhasil! Akun {username} siap digunakan."
     }
-
+ 
 @app.post("/api/login")
 def login(req: LoginRequest):
     """
@@ -173,34 +198,57 @@ def login(req: LoginRequest):
     username = req.username.strip().lower()
     password = req.password
     
-    # Query database SQLite untuk mencari user
+    # Query database SQLite untuk mencari user beserta email-nya
     conn = sqlite3.connect("bank.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT password_hash, role FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT password_hash, role, email FROM users WHERE username = ?", (username,))
     row = cursor.fetchone()
     conn.close()
     
     if not row:
         raise HTTPException(status_code=400, detail="Username atau password salah.")
         
-    db_password_hash, role = row
+    db_password_hash, role, email = row
     
     # 1. Validasi password menggunakan modul auth_hash.py (Anggota 1)
     is_valid = auth_hash.verify_password(password, db_password_hash)
     if not is_valid:
         raise HTTPException(status_code=400, detail="Username atau password salah.")
         
-    # 2. Jika password valid, buat OTP menggunakan modul auth_otp.py (Anggota 2)
+    # 2. Jika user adalah admin, lewati OTP dan langsung buat session
+    if role == "admin":
+        session_token = auth_session.create_session(username, role)
+        print(f"\n[SERVER] Admin {username} login berhasil tanpa OTP.\n")
+        return {
+            "success": True,
+            "requires_otp": False,
+            "token": session_token,
+            "message": "Login berhasil sebagai Administrator."
+        }
+        
+    # 3. Jika user adalah customer, buat OTP menggunakan modul auth_otp.py (Anggota 2)
     otp_code = auth_otp.generate_otp(username)
     
     # Mencetak kode OTP di console server untuk simulasi pengujian
     print(f"\n[SERVER BANNER] OTP untuk {username} adalah: {otp_code}\n")
     
+    # Masking email untuk privasi pada UI
+    masked_email = "email terdaftar"
+    if email:
+        parts = email.split("@")
+        if len(parts) == 2:
+            name_part, domain_part = parts
+            if len(name_part) > 2:
+                masked_name = name_part[0] + "*" * (len(name_part) - 2) + name_part[-1]
+            else:
+                masked_name = name_part[0] + "*" * len(name_part)
+            masked_email = f"{masked_name}@{domain_part}"
+    
     return {
         "success": True, 
-        "message": "Password terverifikasi. Masukkan OTP.", 
-        "username": username,
-        "otp_code": otp_code # Diberikan ke UI hanya untuk mempermudah pengujian lokal
+        "requires_otp": True,
+        "message": f"Password terverifikasi. OTP telah dikirim ke {masked_email}.", 
+        "username": username
     }
 
 @app.post("/api/verify-otp")

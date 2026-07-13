@@ -661,11 +661,6 @@
             <h2 class="card-title">Selamat Datang</h2>
             <p class="card-subtitle">Masuk ke rekening digital Anda dengan aman menggunakan verifikasi MFA ganda.</p>
 
-            <!-- Test Mode Banner -->
-            <div class="test-badge">
-                <div><i class="fa-solid fa-circle-info"></i> <strong>MODE PENGUJIAN KREDENSIAL:</strong></div>
-                <div>• Pengawas (Admin): <code>admin</code> / <code>admin123</code></div>
-            </div>
 
             <form id="form-login" onsubmit="handleLogin(event)">
                 <div class="form-group">
@@ -715,6 +710,14 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label">Alamat Email (Gmail)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-envelope input-icon"></i>
+                        <input type="email" id="register-email" class="form-input" placeholder="contoh_email@gmail.com" required autocomplete="email">
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label">Password</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-lock input-icon"></i>
@@ -744,12 +747,6 @@
             <h2 class="card-title">Verifikasi Keamanan</h2>
             <p class="card-subtitle">Kode OTP telah dikirimkan secara internal. Masukkan 6 digit kode OTP Anda di bawah ini.</p>
 
-            <!-- OTP helper badge (displays current OTP code) -->
-            <div class="test-badge" id="otp-helper-badge">
-                <div><i class="fa-solid fa-shield-cat"></i> <strong>PENGUJIAN (OTP):</strong></div>
-                <div>Kode OTP Anda saat ini adalah: <code id="mock-otp-text" style="font-size: 14px; font-weight: bold;">123456</code></div>
-                <div style="font-size: 10px; color: var(--text-muted);">*Dalam implementasi asli, kode ini dikirim melalui SMS/Email/Google Authenticator.</div>
-            </div>
 
             <form id="form-otp" onsubmit="handleVerifyOTP(event)">
                 <div class="otp-inputs">
@@ -1020,11 +1017,16 @@
         async function handleRegister(e) {
             e.preventDefault();
             const usernameInput = document.getElementById('register-username');
+            const emailInput = document.getElementById('register-email');
             const passwordInput = document.getElementById('register-password');
             const submitBtn = document.getElementById('btn-register-submit');
 
             if (usernameInput.value.trim().length < 3) {
                 showToast('Username minimal terdiri dari 3 karakter.', 'error');
+                return;
+            }
+            if (emailInput.value.trim().length < 5 || !emailInput.value.includes('@')) {
+                showToast('Masukkan alamat email yang valid.', 'error');
                 return;
             }
             if (passwordInput.value.length < 6) {
@@ -1041,6 +1043,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         username: usernameInput.value,
+                        email: emailInput.value,
                         password: passwordInput.value
                     })
                 });
@@ -1050,6 +1053,7 @@
                 if (response.ok && result.success) {
                     showToast(result.message, 'success');
                     usernameInput.value = '';
+                    emailInput.value = '';
                     passwordInput.value = '';
                     showCard('card-login');
                 } else {
@@ -1088,10 +1092,22 @@
                 const result = await response.json();
                 
                 if (response.ok && result.success) {
+                    // Jika login admin (requires_otp = false)
+                    if (result.requires_otp === false) {
+                        sessionToken = result.token;
+                        localStorage.setItem('aura_session_token', sessionToken);
+                        showToast(result.message || 'Login sukses sebagai Admin.', 'success');
+                        loadDashboard();
+                        return;
+                    }
+
                     tempUsername = result.username;
                     
-                    // Show OTP Helper Code
-                    document.getElementById('mock-otp-text').innerText = result.otp_code;
+                    // Update OTP info message with masked email
+                    const otpSubtitle = document.querySelector('#card-otp .card-subtitle');
+                    if (otpSubtitle) {
+                        otpSubtitle.innerHTML = result.message || 'Kode OTP telah dikirimkan ke email terdaftar Anda.';
+                    }
                     
                     showToast('Password cocok! Silakan verifikasi OTP.', 'success');
                     showCard('card-otp');

@@ -9,7 +9,7 @@ import sqlite3
 import uuid
 
 DB_FILE = "bank.db"
-SESSION_TIMEOUT = 600  # 30 menit (dalam detik)
+SESSION_TIMEOUT = 6  # 1 minutes
 
 def _get_conn() -> sqlite3.Connection:
     """Buka koneksi SQLite dengan foreign-key check aktif."""

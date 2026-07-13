@@ -34,3 +34,8 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
+
+# Environment configurations (Kredensial email, dll)
+.env
+.env.local
+.env.*.local
