@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA BANK | Secure Login</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="ambient-glow one"></div>
+    <div class="ambient-glow two"></div>
+
+    <div class="layout-wrapper">
+        <div class="card">
+            <!-- Brand Logo -->
+            <a href="/" class="brand">
+                <i class="fa-solid fa-building-columns brand-logo"></i>
+                <span class="brand-name">AURA BANK</span>
+            </a>
+
+            <h2 class="card-title">Selamat Datang</h2>
+            <p class="card-subtitle">Masuk aman ke portal perbankan digital Anda</p>
+
+            <form id="form-login" onsubmit="handleLogin(event)">
+                <!-- Username -->
+                <div class="form-group">
+                    <label class="form-label" for="login-username">Username</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-user input-icon"></i>
+                        <input type="text" id="login-username" class="form-input" placeholder="Masukkan username Anda" required autocomplete="username">
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label class="form-label" for="login-password">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-lock input-icon"></i>
+                        <input type="password" id="login-password" class="form-input" placeholder="Masukkan password Anda" required autocomplete="current-password">
+                        <i class="fa-regular fa-eye password-toggle" onclick="togglePasswordVisibility('login-password', this)"></i>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn" id="btn-login-submit">
+                    <span>Masuk Aman</span>
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
+            </form>
+
+            <div class="card-footer">
+                <span>Belum punya rekening nasabah?</span>
+                <a href="/register" class="card-link">Daftar Sekarang</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Box Container -->
+    <div class="toast-container" id="toast-box"></div>
+
+    <!-- Shared Utilities JS -->
+    <script src="/static/app.js"></script>
+    <script>
+        // Redirect if already authenticated
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('aura_session_token')) {
+                window.location.href = '/dashboard';
+            }
+        });
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const usernameInput = document.getElementById('login-username');
+            const passwordInput = document.getElementById('login-password');
+            const submitBtn = document.getElementById('btn-login-submit');
+
+            // Visual feedback loading
+            submitBtn.disabled = true;
+            submitBtn.querySelector('span').innerText = 'Memverifikasi...';
+
+            try {
+                const response = await apiFetch('/api/login', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: usernameInput.value,
+                        password: passwordInput.value
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    if (result.requires_otp === false) {
+                        // Admin: bypass OTP, save token, redirect to dashboard
+                        localStorage.setItem('aura_session_token', result.token);
+                        showToast(result.message || 'Login sukses sebagai Admin.', 'success');
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 1200);
+                    } else {
+                        // Customer: redirect to verify-otp page with username
+                        showToast('Password terverifikasi. Membuka verifikasi OTP...', 'success');
+                        setTimeout(() => {
+                            window.location.href = `/verify-otp?username=${encodeURIComponent(usernameInput.value)}`;
+                        }, 1200);
+                    }
+                } else {
+                    showToast(result.detail || result.message || 'Username atau password salah.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                if (err.message !== 'Unauthorized') {
+                    showToast('Gagal terhubung ke server.', 'error');
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').innerText = 'Masuk Aman';
+            }
+        }
+    </script>
+</body>
+</html>

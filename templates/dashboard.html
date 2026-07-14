@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA BANK | Dashboard Portal</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="ambient-glow one"></div>
+    <div class="ambient-glow two"></div>
+
+    <div class="layout-wrapper wide">
+        <div class="dashboard-layout">
+            <!-- ================= SIDEBAR MENU ================= -->
+            <aside class="sidebar">
+                <!-- Sidebar Brand Logo -->
+                <div class="sidebar-brand">
+                    <i class="fa-solid fa-building-columns brand-logo"></i>
+                    <span class="brand-name">AURA BANK</span>
+                </div>
+                
+                <!-- Sidebar User Profile Details -->
+                <div class="sidebar-user">
+                    <div class="avatar" id="avatar-initial">-</div>
+                    <div class="sidebar-user-info">
+                        <span class="profile-name" id="display-name">Memuat...</span>
+                        <span class="role-badge" id="display-role">CUSTOMER</span>
+                    </div>
+                </div>
+
+                <!-- Sidebar Nav Links -->
+                <nav class="sidebar-nav">
+                    <button class="nav-item active" id="nav-transactions" onclick="switchNavTab('transactions')">
+                        <i class="fa-solid fa-wallet"></i>
+                        <span>Transaksi</span>
+                    </button>
+                    <button class="nav-item" id="nav-users" onclick="switchNavTab('users')">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Daftar Nasabah</span>
+                    </button>
+                    <button class="nav-item" id="nav-logs" onclick="switchNavTab('logs')">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Audit Log</span>
+                    </button>
+                </nav>
+
+                <!-- Sidebar Logout Button -->
+                <button onclick="handleLogout()" class="sidebar-logout-btn">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Keluar Sesi</span>
+                </button>
+            </aside>
+
+            <!-- ================= MAIN CONTENT PANELS ================= -->
+            <main class="main-content">
+                
+                <!-- PANEL 1: TRANSAKSI KEUANGAN -->
+                <div id="panel-transactions" class="content-panel active">
+                    <!-- Case A: Diizinkan untuk Peran Customer -->
+                    <div class="role-customer-only">
+                        <div class="card" style="padding: 36px;">
+                            <!-- Balance Display Card -->
+                            <div class="balance-card">
+                                <div class="balance-label">
+                                    <span>Total Saldo Rekening</span>
+                                    <i id="btn-balance-toggle" class="fa-regular fa-eye balance-hide-toggle" onclick="toggleBalanceVisibility(this)"></i>
+                                </div>
+                                <div class="balance-value" id="balance-display">
+                                    Rp 0,00
+                                </div>
+                            </div>
+
+                            <!-- Transaction Tabs Navigation -->
+                            <div class="tabs-navigation">
+                                <button class="tab-btn active" id="tab-deposit" onclick="switchTab('deposit')">
+                                    <i class="fa-solid fa-arrow-down-left"></i>
+                                    <span>Setor Tunai</span>
+                                </button>
+                                <button class="tab-btn" id="tab-withdraw" onclick="switchTab('withdraw')">
+                                    <i class="fa-solid fa-arrow-up-right"></i>
+                                    <span>Tarik Tunai</span>
+                                </button>
+                            </div>
+
+                            <!-- Tab Contents (Forms) -->
+                            <!-- Deposit Form -->
+                            <div id="panel-deposit" class="tab-content active">
+                                <form id="form-deposit" onsubmit="handleDeposit(event)">
+                                    <div class="form-group">
+                                        <label class="form-label" for="deposit-amount">Nominal Setoran (Rupiah)</label>
+                                        <div class="input-wrapper">
+                                            <i class="fa-solid fa-money-bill-wave input-icon"></i>
+                                            <input type="number" id="deposit-amount" class="form-input" placeholder="Contoh: 100000" min="1000" required>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Amounts Grid -->
+                                    <div class="quick-amounts">
+                                        <button type="button" class="quick-btn" onclick="setAmount('deposit', 50000)">50K</button>
+                                        <button type="button" class="quick-btn" onclick="setAmount('deposit', 100000)">100K</button>
+                                        <button type="button" class="quick-btn" onclick="setAmount('deposit', 200000)">200K</button>
+                                        <button type="button" class="quick-btn" onclick="setAmount('deposit', 500000)">500K</button>
+                                    </div>
+
+                                    <button type="submit" class="btn" id="btn-deposit-submit">
+                                        <span>Konfirmasi Setoran</span>
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Withdraw Form -->
+                            <div id="panel-withdraw" class="tab-content">
+                                <form id="form-withdraw" onsubmit="handleWithdraw(event)">
+                                    <div class="form-group">
+                                        <label class="form-label" for="withdraw-amount">Nominal Penarikan (Rupiah)</label>
+                                        <div class="input-wrapper">
+                                            <i class="fa-solid fa-wallet input-icon"></i>
+                                            <input type="number" id="withdraw-amount" class="form-input" placeholder="Contoh: 50000" min="1000" required>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Amounts Grid -->
+                                    <div class="quick-amounts">
+                                        <button type="button" class="quick-btn" onclick="setAmount('withdraw', 50000)">50K</button>
+                                        <button type="button" class="quick-btn" onclick="setAmount('withdraw', 100000)">100K</button>
+                                        <button type="button" class="quick-btn" onclick="setAmount('withdraw', 200000)">200K</button>
+                                        <button type="button" class="quick-btn" onclick="setAmount('withdraw', 500000)">500K</button>
+                                    </div>
+
+                                    <button type="submit" class="btn" id="btn-withdraw-submit" style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); box-shadow: 0 8px 20px rgba(79, 70, 229, 0.2);">
+                                        <span>Konfirmasi Penarikan</span>
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Personal Session History -->
+                            <div style="margin-top: 36px;">
+                                <div class="data-panel-title">
+                                    <i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i>
+                                    <span>Riwayat Mutasi Sesi Ini</span>
+                                </div>
+                                <div class="records-list" id="transaction-history">
+                                    <div class="empty-records-state">Belum ada riwayat transaksi pada sesi ini.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Case B: Ditolak untuk Peran Admin -->
+                    <div class="denied-admin" style="display: none;">
+                        <div class="card denied-card restricted">
+                            <i class="fa-solid fa-ban denied-icon"></i>
+                            <h3 class="denied-title">Otoritas Transaksi Dibatasi</h3>
+                            <p class="denied-text">Peran Anda saat ini adalah <strong>Administrator</strong>. Sesuai prinsip segregasi tugas keamanan (Separation of Duties), akun administrator dilarang melakukan transaksi keuangan setor/tarik saldo secara langsung.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 2: DAFTAR NASABAH -->
+                <div id="panel-users" class="content-panel">
+                    <!-- Case A: Diizinkan untuk Peran Admin -->
+                    <div class="role-admin-only" style="display: none;">
+                        <div class="card" style="padding: 36px;">
+                            <div class="data-panel-title">
+                                <i class="fa-solid fa-address-book" style="color: var(--primary);"></i>
+                                <span>Daftar Saldo Nasabah Aktif</span>
+                            </div>
+                            <div class="records-list" id="admin-users-list">
+                                <!-- Filled dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Case B: Ditolak untuk Peran Customer -->
+                    <div class="denied-customer" style="display: none;">
+                        <div class="card denied-card">
+                            <i class="fa-solid fa-shield-halved denied-icon"></i>
+                            <h3 class="denied-title">Akses Ditolak (403 Forbidden)</h3>
+                            <p class="denied-text">Peran Anda saat ini adalah <strong>Nasabah (Customer)</strong>. Anda tidak memiliki hak otorisasi keamanan yang cukup untuk melihat daftar nasabah perbankan lainnya demi menjaga privasi data nasabah.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 3: AUDIT LOG TRANSAKSI SISTEM -->
+                <div id="panel-logs" class="content-panel">
+                    <!-- Case A: Diizinkan untuk Peran Admin -->
+                    <div class="role-admin-only" style="display: none;">
+                        <div class="card" style="padding: 36px;">
+                            <div class="data-panel-title">
+                                <i class="fa-solid fa-receipt" style="color: var(--secondary);"></i>
+                                <span>Log Histori Transaksi Sistem</span>
+                            </div>
+                            <div class="records-list" id="admin-txs-list">
+                                <!-- Filled dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Case B: Ditolak untuk Peran Customer -->
+                    <div class="denied-customer" style="display: none;">
+                        <div class="card denied-card">
+                            <i class="fa-solid fa-shield-halved denied-icon"></i>
+                            <h3 class="denied-title">Akses Ditolak (403 Forbidden)</h3>
+                            <p class="denied-text">Peran Anda saat ini adalah <strong>Nasabah (Customer)</strong>. Log audit transaksi internal perbankan bersifat rahasia dan hanya dapat diakses oleh administrator sistem/petugas audit bank.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Box Container -->
+    <div class="toast-container" id="toast-box"></div>
+
+    <!-- Shared Utilities JS -->
+    <script src="/static/app.js"></script>
+    <script>
+        let currentBalance = 0;
+        let isBalanceHidden = false;
+        let userRole = 'customer';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('aura_session_token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            // Restore balance visibility state
+            const hiddenState = localStorage.getItem('aura_balance_hidden');
+            isBalanceHidden = (hiddenState === 'true');
+
+            // Load profile data and verify routing
+            loadDashboard();
+        });
+
+        async function loadDashboard() {
+            try {
+                const response = await apiFetch('/api/dashboard');
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    const username = result.username;
+                    userRole = result.role;
+                    currentBalance = result.balance;
+
+                    // Set user display details
+                    document.getElementById('display-name').innerText = username.toUpperCase();
+                    
+                    const avatar = document.getElementById('avatar-initial');
+                    avatar.innerText = username.charAt(0).toUpperCase();
+
+                    const roleBadge = document.getElementById('display-role');
+                    roleBadge.innerText = userRole.toUpperCase();
+                    roleBadge.className = `role-badge role-${userRole}`;
+
+                    if (userRole === 'admin') {
+                        // Otorisasi: Tampilkan bagian admin, sembunyikan bagian customer
+                        document.querySelectorAll('.role-admin-only').forEach(el => el.style.display = 'block');
+                        document.querySelectorAll('.role-customer-only').forEach(el => el.style.display = 'none');
+                        document.querySelectorAll('.denied-admin').forEach(el => el.style.display = 'block');
+                        document.querySelectorAll('.denied-customer').forEach(el => el.style.display = 'none');
+                        
+                        // Default tab untuk admin adalah 'users'
+                        switchNavTab('users');
+                        loadAdminData();
+                    } else {
+                        // Otorisasi: Tampilkan bagian customer, sembunyikan bagian admin
+                        document.querySelectorAll('.role-admin-only').forEach(el => el.style.display = 'none');
+                        document.querySelectorAll('.role-customer-only').forEach(el => el.style.display = 'block');
+                        document.querySelectorAll('.denied-admin').forEach(el => el.style.display = 'none');
+                        document.querySelectorAll('.denied-customer').forEach(el => el.style.display = 'block');
+                        
+                        // Default tab untuk nasabah adalah 'transactions'
+                        switchNavTab('transactions');
+                        updateBalanceUI();
+                    }
+                } else {
+                    showToast('Gagal memuat profil dashboard.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // ================= NAVIGATION LOGIC =================
+        
+        function switchNavTab(tabId) {
+            // 1. Matikan semua nav-item dan aktifkan yang dipilih
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.className = 'nav-item';
+            });
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if (activeBtn) activeBtn.className = 'nav-item active';
+
+            // 2. Matikan semua content-panel dan aktifkan yang dipilih
+            document.querySelectorAll('.content-panel').forEach(panel => {
+                panel.className = 'content-panel';
+            });
+            const activePanel = document.getElementById(`panel-${tabId}`);
+            if (activePanel) activePanel.className = 'content-panel active';
+        }
+
+        // ================= CUSTOMER PORTAL LOGIC =================
+
+        function toggleBalanceVisibility(icon) {
+            isBalanceHidden = !isBalanceHidden;
+            localStorage.setItem('aura_balance_hidden', isBalanceHidden);
+            updateBalanceUI();
+        }
+
+        function updateBalanceUI() {
+            const balanceEl = document.getElementById('balance-display');
+            if (isBalanceHidden) {
+                balanceEl.innerText = 'Rp ••••••••';
+            } else {
+                balanceEl.innerText = `Rp ${formatRupiah(currentBalance)}`;
+            }
+            
+            const icon = document.getElementById('btn-balance-toggle');
+            if (isBalanceHidden) {
+                icon.className = 'fa-regular fa-eye-slash balance-hide-toggle';
+            } else {
+                icon.className = 'fa-regular fa-eye balance-hide-toggle';
+            }
+        }
+
+        function formatRupiah(number) {
+            return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(number);
+        }
+
+        function switchTab(action) {
+            // Kelola tab setor/tarik internal milik customer
+            document.getElementById('tab-deposit').className = `tab-btn ${action === 'deposit' ? 'active' : ''}`;
+            document.getElementById('tab-withdraw').className = `tab-btn ${action === 'withdraw' ? 'active' : ''}`;
+            
+            document.getElementById('panel-deposit').className = `tab-content ${action === 'deposit' ? 'active' : ''}`;
+            document.getElementById('panel-withdraw').className = `tab-content ${action === 'withdraw' ? 'active' : ''}`;
+        }
+
+        function setAmount(type, amount) {
+            const input = document.getElementById(`${type}-amount`);
+            if (input) input.value = amount;
+        }
+
+        async function handleDeposit(e) {
+            e.preventDefault();
+            const amountInput = document.getElementById('deposit-amount');
+            const submitBtn = document.getElementById('btn-deposit-submit');
+            const amount = parseFloat(amountInput.value);
+
+            if (isNaN(amount) || amount <= 0) {
+                showToast('Masukkan nominal setoran yang valid.', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.querySelector('span').innerText = 'Memproses...';
+
+            try {
+                const response = await apiFetch('/api/deposit', {
+                    method: 'POST',
+                    body: JSON.stringify({ amount })
+                });
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    currentBalance = result.new_balance;
+                    updateBalanceUI();
+                    showToast(`Setoran Rp ${formatRupiah(amount)} berhasil!`, 'success');
+                    addTransactionToHistory('setor', amount, 'success');
+                    amountInput.value = '';
+                } else {
+                    showToast(result.detail || result.message || 'Setoran gagal diproses.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                if (err.message !== 'Unauthorized') {
+                    showToast('Gagal terhubung ke server.', 'error');
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').innerText = 'Konfirmasi Setoran';
+            }
+        }
+
+        async function handleWithdraw(e) {
+            e.preventDefault();
+            const amountInput = document.getElementById('withdraw-amount');
+            const submitBtn = document.getElementById('btn-withdraw-submit');
+            const amount = parseFloat(amountInput.value);
+
+            if (isNaN(amount) || amount <= 0) {
+                showToast('Masukkan nominal penarikan yang valid.', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.querySelector('span').innerText = 'Memproses...';
+
+            try {
+                const response = await apiFetch('/api/withdraw', {
+                    method: 'POST',
+                    body: JSON.stringify({ amount })
+                });
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    currentBalance = result.new_balance;
+                    updateBalanceUI();
+                    showToast(`Penarikan Rp ${formatRupiah(amount)} berhasil!`, 'success');
+                    addTransactionToHistory('tarik', amount, 'danger');
+                    amountInput.value = '';
+                } else {
+                    showToast(result.detail || result.message || 'Penarikan gagal diproses.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                if (err.message !== 'Unauthorized') {
+                    showToast('Gagal terhubung ke server.', 'error');
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').innerText = 'Konfirmasi Penarikan';
+            }
+        }
+
+        function addTransactionToHistory(type, amount, classType) {
+            const list = document.getElementById('transaction-history');
+            const emptyEl = list.querySelector('.empty-records-state');
+            if (emptyEl) emptyEl.remove();
+
+            const item = document.createElement('div');
+            item.className = 'record-item';
+            
+            const dateStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+            const icon = type === 'setor' ? 'fa-arrow-down-left' : 'fa-arrow-up-right';
+            const typeLabel = type === 'setor' ? 'Setor Tunai' : 'Tarik Tunai';
+            const prefix = type === 'setor' ? '+' : '-';
+
+            item.innerHTML = `
+                <div class="record-meta">
+                    <span class="record-title"><i class="fa-solid ${icon}" style="margin-right: 8px; color: var(--${classType === 'success' ? 'primary' : 'danger'});"></i>${typeLabel}</span>
+                    <span class="record-subtitle">${dateStr}</span>
+                </div>
+                <div class="record-value ${classType}">
+                    ${prefix} Rp ${formatRupiah(amount)}
+                </div>
+            `;
+            
+            list.insertBefore(item, list.firstChild);
+        }
+
+        // ================= ADMINISTRATOR PORTAL LOGIC =================
+
+        function loadAdminData() {
+            loadAdminUsers();
+            loadAdminTransactions();
+        }
+
+        async function loadAdminUsers() {
+            const listContainer = document.getElementById('admin-users-list');
+            listContainer.innerHTML = `<div style="text-align: center; padding: 24px; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Memuat data nasabah...</div>`;
+            try {
+                const response = await apiFetch('/api/admin/users');
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    if (result.users.length === 0) {
+                        listContainer.innerHTML = `<div class="empty-records-state">Belum ada nasabah terdaftar.</div>`;
+                        return;
+                    }
+                    listContainer.innerHTML = result.users.map(u => `
+                        <div class="record-item">
+                            <div class="record-meta">
+                                <span class="record-title"><i class="fa-regular fa-user" style="margin-right: 8px; color: var(--primary);"></i>${u.username.toUpperCase()}</span>
+                                <span class="record-subtitle">Peran: Nasabah</span>
+                            </div>
+                            <div class="record-value success">
+                                Rp ${formatRupiah(u.balance)}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    listContainer.innerHTML = `<div class="empty-records-state" style="color: var(--danger);">Gagal memuat data nasabah.</div>`;
+                }
+            } catch (err) {
+                console.error(err);
+                if (err.message !== 'Unauthorized') {
+                    listContainer.innerHTML = `<div class="empty-records-state" style="color: var(--danger);">Kesalahan koneksi ke server.</div>`;
+                }
+            }
+        }
+
+        async function loadAdminTransactions() {
+            const listContainer = document.getElementById('admin-txs-list');
+            listContainer.innerHTML = `<div style="text-align: center; padding: 24px; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Memuat audit log...</div>`;
+            try {
+                const response = await apiFetch('/api/admin/transactions');
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    if (result.transactions.length === 0) {
+                        listContainer.innerHTML = `<div class="empty-records-state">Belum ada riwayat transaksi sistem.</div>`;
+                        return;
+                    }
+                    listContainer.innerHTML = result.transactions.map(t => {
+                        const isDeposit = t.type === 'deposit';
+                        const typeLabel = isDeposit ? 'Setor Tunai' : 'Tarik Tunai';
+                        const classVal = isDeposit ? 'success' : 'danger';
+                        const icon = isDeposit ? 'fa-arrow-down-left' : 'fa-arrow-up-right';
+                        const prefix = isDeposit ? '+' : '-';
+                        
+                        // Parse timestamp
+                        let timeStr = t.created_at;
+                        try {
+                            const date = new Date(t.created_at + 'Z');
+                            timeStr = date.toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+                        } catch (e) {}
+
+                        return `
+                            <div class="record-item">
+                                <div class="record-meta">
+                                    <span class="record-title">
+                                        <i class="fa-solid ${icon}" style="margin-right: 8px; color: var(--${classVal === 'success' ? 'primary' : 'danger'});"></i>
+                                        <strong style="color: var(--secondary);">${t.username.toUpperCase()}</strong>: ${typeLabel}
+                                    </span>
+                                    <span class="record-subtitle">${timeStr}</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div class="record-value ${classVal}">
+                                        ${prefix} Rp ${formatRupiah(t.amount)}
+                                    </div>
+                                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Sisa: Rp ${formatRupiah(t.balance_after)}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    listContainer.innerHTML = `<div class="empty-records-state" style="color: var(--danger);">Gagal memuat audit log.</div>`;
+                }
+            } catch (err) {
+                console.error(err);
+                if (err.message !== 'Unauthorized') {
+                    listContainer.innerHTML = `<div class="empty-records-state" style="color: var(--danger);">Kesalahan koneksi ke server.</div>`;
+                }
+            }
+        }
+
+        // ================= LOGOUT PROCESS =================
+
+        async function handleLogout() {
+            const token = localStorage.getItem('aura_session_token');
+            if (token) {
+                try {
+                    await fetch('/api/logout', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                } catch (e) {
+                    console.error('API logout error:', e);
+                }
+            }
+
+            localStorage.removeItem('aura_session_token');
+            showToast('Anda telah keluar dengan aman.', 'info');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1200);
+        }
+    </script>
+</body>
+</html>

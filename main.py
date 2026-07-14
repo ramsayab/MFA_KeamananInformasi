@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import sqlite3
 import os
@@ -20,6 +21,9 @@ app = FastAPI(title="Secure Digital Banking with MFA - SQLite Version")
 # Setup Jinja2 Templates
 templates = Jinja2Templates(directory="templates")
 
+# Mount Static Files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # ================= DATABASE INITIALIZATION =================
 @app.on_event("startup")
 def startup_event():
@@ -35,7 +39,7 @@ def startup_event():
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
             email TEXT,
-            password_hash TEXT NOT NULL,
+            password TEXT NOT NULL,
             role TEXT NOT NULL
         )
     """)
@@ -50,7 +54,7 @@ def startup_event():
             print("[SERVER] Kolom 'email' berhasil ditambahkan ke tabel 'users'.")
         except sqlite3.Error as e:
             print(f"[SERVER ERROR] Gagal menambahkan kolom email: {e}")
-    
+
     # 2. Tabel balances (Untuk Anggota 4)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS balances (
@@ -85,7 +89,7 @@ def startup_event():
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
         # Seeding satu-satunya akun admin bawaan dengan email default
-        cursor.execute("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)", 
+        cursor.execute("INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)", 
                        ("admin", "admin@gmail.com", auth_hash.hash_password("admin123"), "admin")) # Password asli: admin123
         
         # Seeding saldo awal untuk testing
@@ -133,9 +137,25 @@ def get_current_user(authorization: str = Header(None)) -> dict:
 # ================= ROUTES =================
 
 @app.get("/", response_class=HTMLResponse)
-def get_home(request: Request):
-    """Menampilkan halaman utama Frontend Bank Digital."""
-    return templates.TemplateResponse(request=request, name="index.html")
+@app.get("/login", response_class=HTMLResponse)
+def get_login(request: Request):
+    """Menampilkan halaman Login."""
+    return templates.TemplateResponse(request=request, name="login.html")
+
+@app.get("/register", response_class=HTMLResponse)
+def get_register(request: Request):
+    """Menampilkan halaman Registrasi."""
+    return templates.TemplateResponse(request=request, name="register.html")
+
+@app.get("/verify-otp", response_class=HTMLResponse)
+def get_otp(request: Request):
+    """Menampilkan halaman Verifikasi OTP."""
+    return templates.TemplateResponse(request=request, name="otp.html")
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def get_dashboard_page(request: Request):
+    """Menampilkan halaman Dashboard (Customer / Admin)."""
+    return templates.TemplateResponse(request=request, name="dashboard.html")
 
 @app.post("/api/register")
 def register(req: RegisterRequest):
@@ -171,7 +191,7 @@ def register(req: RegisterRequest):
         hashed = auth_hash.hash_password(password)
         
         # Insert user into users with email
-        cursor.execute("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)",
+        cursor.execute("INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
                        (username, email, hashed, "customer"))
         
         # Seed initial balance (Rp 100.000,00)
@@ -201,17 +221,17 @@ def login(req: LoginRequest):
     # Query database SQLite untuk mencari user beserta email-nya
     conn = sqlite3.connect("bank.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT password_hash, role, email FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT password, role, email FROM users WHERE username = ?", (username,))
     row = cursor.fetchone()
     conn.close()
     
     if not row:
         raise HTTPException(status_code=400, detail="Username atau password salah.")
         
-    db_password_hash, role, email = row
+    db_password, role, email = row
     
     # 1. Validasi password menggunakan modul auth_hash.py (Anggota 1)
-    is_valid = auth_hash.verify_password(password, db_password_hash)
+    is_valid = auth_hash.verify_password(password, db_password)
     if not is_valid:
         raise HTTPException(status_code=400, detail="Username atau password salah.")
         

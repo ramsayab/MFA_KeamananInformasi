@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA BANK | Buka Rekening</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="ambient-glow one"></div>
+    <div class="ambient-glow two"></div>
+
+    <div class="layout-wrapper">
+        <div class="card">
+            <!-- Brand Logo -->
+            <a href="/" class="brand">
+                <i class="fa-solid fa-building-columns brand-logo"></i>
+                <span class="brand-name">AURA BANK</span>
+            </a>
+
+            <h2 class="card-title">Buka Rekening</h2>
+            <p class="card-subtitle">Mulai kelola tabungan digital Anda dengan aman</p>
+
+            <form id="form-register" onsubmit="handleRegister(event)">
+                <!-- Username -->
+                <div class="form-group">
+                    <label class="form-label" for="register-username">Username</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-user input-icon"></i>
+                        <input type="text" id="register-username" class="form-input" placeholder="Pilih username unik" required autocomplete="username">
+                    </div>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label class="form-label" for="register-email">Alamat Email</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-envelope input-icon"></i>
+                        <input type="email" id="register-email" class="form-input" placeholder="contoh_email@gmail.com" required autocomplete="email">
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label class="form-label" for="register-password">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-lock input-icon"></i>
+                        <input type="password" id="register-password" class="form-input" placeholder="Minimal 6 karakter" required autocomplete="new-password">
+                        <i class="fa-regular fa-eye password-toggle" onclick="togglePasswordVisibility('register-password', this)"></i>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn" id="btn-register-submit">
+                    <span>Daftar Rekening Baru</span>
+                    <i class="fa-solid fa-user-plus"></i>
+                </button>
+            </form>
+
+            <div class="card-footer">
+                <span>Sudah memiliki rekening?</span>
+                <a href="/login" class="card-link">Masuk Sekarang</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Box Container -->
+    <div class="toast-container" id="toast-box"></div>
+
+    <!-- Shared Utilities JS -->
+    <script src="/static/app.js"></script>
+    <script>
+        // Redirect if already authenticated
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('aura_session_token')) {
+                window.location.href = '/dashboard';
+            }
+        });
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const usernameInput = document.getElementById('register-username');
+            const emailInput = document.getElementById('register-email');
+            const passwordInput = document.getElementById('register-password');
+            const submitBtn = document.getElementById('btn-register-submit');
+
+            if (passwordInput.value.length < 6) {
+                showToast('Password minimal terdiri dari 6 karakter.', 'error');
+                return;
+            }
+
+            // Visual feedback loading
+            submitBtn.disabled = true;
+            submitBtn.querySelector('span').innerText = 'Memproses Pendaftaran...';
+
+            try {
+                const response = await apiFetch('/api/register', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: usernameInput.value,
+                        email: emailInput.value,
+                        password: passwordInput.value
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    showToast(result.message || 'Registrasi berhasil! Silakan masuk.', 'success');
+                    
+                    // Clear inputs
+                    usernameInput.value = '';
+                    emailInput.value = '';
+                    passwordInput.value = '';
+                    
+                    // Redirect to login page
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 1800);
+                } else {
+                    showToast(result.detail || result.message || 'Registrasi gagal. Coba lagi.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                if (err.message !== 'Unauthorized') {
+                    showToast('Gagal terhubung ke server.', 'error');
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').innerText = 'Daftar Rekening Baru';
+            }
+        }
+    </script>
+</body>
+</html>

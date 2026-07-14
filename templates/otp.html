@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA BANK | Verifikasi OTP</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="ambient-glow one"></div>
+    <div class="ambient-glow two"></div>
+
+    <div class="layout-wrapper">
+        <div class="card">
+            <!-- Brand Logo -->
+            <div class="brand">
+                <i class="fa-solid fa-key brand-logo"></i>
+                <span class="brand-name">VERIFIKASI OTP</span>
+            </div>
+
+            <h2 class="card-title">Verifikasi Keamanan</h2>
+            <p class="card-subtitle" id="otp-status-message">Masukkan 6 digit kode OTP Anda di bawah ini untuk masuk aman.</p>
+
+            <form id="form-otp" onsubmit="handleVerifyOTP(event)">
+                <div class="otp-inputs">
+                    <input type="text" maxlength="1" class="otp-box" oninput="moveFocus(this, 1)" onkeydown="backFocus(this, event)" autofocus required>
+                    <input type="text" maxlength="1" class="otp-box" oninput="moveFocus(this, 2)" onkeydown="backFocus(this, event)" required>
+                    <input type="text" maxlength="1" class="otp-box" oninput="moveFocus(this, 3)" onkeydown="backFocus(this, event)" required>
+                    <input type="text" maxlength="1" class="otp-box" oninput="moveFocus(this, 4)" onkeydown="backFocus(this, event)" required>
+                    <input type="text" maxlength="1" class="otp-box" oninput="moveFocus(this, 5)" onkeydown="backFocus(this, event)" required>
+                    <input type="text" maxlength="1" class="otp-box" oninput="moveFocus(this, 6)" onkeydown="backFocus(this, event)" required>
+                </div>
+
+                <!-- Testing Info Indicator -->
+                <div class="test-indicator">
+                    <span>💡 <strong>Mode Pengujian / Simulasi:</strong></span>
+                    <span>Cek output konsol server Python Anda untuk melihat kode OTP yang dihasilkan secara dinamis. Jika Anda telah mengonfigurasi file <code>.env</code>, silakan periksa kotak masuk email Anda.</span>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn" id="btn-otp-submit">
+                    <span>Verifikasi & Masuk</span>
+                    <i class="fa-solid fa-circle-check"></i>
+                </button>
+
+                <!-- Back Button -->
+                <button type="button" class="btn btn-secondary" onclick="goBackToLogin()">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Kembali ke Login</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Box Container -->
+    <div class="toast-container" id="toast-box"></div>
+
+    <!-- Shared Utilities JS -->
+    <script src="/static/app.js"></script>
+    <script>
+        let username = '';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Retrieve username from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            username = urlParams.get('username');
+
+            if (!username) {
+                showToast('Username tidak valid. Kembali ke login.', 'error');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1500);
+                return;
+            }
+
+            // Setup OTP event listeners (paste)
+            setupOTPEvents();
+        });
+
+        // OTP inputs auto-focus management
+        function moveFocus(input, nextIndex) {
+            // Only allow digit inputs
+            input.value = input.value.replace(/\D/g, '');
+            
+            if (input.value.length === 1 && nextIndex < 6) {
+                const otpBoxes = document.querySelectorAll('.otp-box');
+                otpBoxes[nextIndex].focus();
+            }
+
+            // Trigger auto-submit when full
+            const otpCode = getOTPValue();
+            if (otpCode.length === 6) {
+                document.getElementById('btn-otp-submit').click();
+            }
+        }
+
+        function backFocus(input, event) {
+            if (event.key === 'Backspace' && input.value.length === 0) {
+                const otpBoxes = document.querySelectorAll('.otp-box');
+                // Find index of current input
+                const currentIdx = Array.from(otpBoxes).indexOf(input);
+                if (currentIdx > 0) {
+                    otpBoxes[currentIdx - 1].focus();
+                }
+            }
+        }
+
+        function setupOTPEvents() {
+            const otpBoxes = document.querySelectorAll('.otp-box');
+            otpBoxes.forEach((box) => {
+                // handle paste behavior
+                box.addEventListener('paste', (e) => {
+                    const data = e.clipboardData.getData('text').trim();
+                    if (data.length === 6 && /^\d+$/.test(data)) {
+                        otpBoxes.forEach((input, inputIdx) => {
+                            input.value = data[inputIdx];
+                        });
+                        otpBoxes[5].focus();
+                        document.getElementById('btn-otp-submit').click();
+                    }
+                    e.preventDefault();
+                });
+            });
+        }
+
+        function getOTPValue() {
+            const otpBoxes = document.querySelectorAll('.otp-box');
+            let otp = '';
+            otpBoxes.forEach(box => otp += box.value);
+            return otp;
+        }
+
+        function clearOTPInputs() {
+            const otpBoxes = document.querySelectorAll('.otp-box');
+            otpBoxes.forEach(box => box.value = '');
+            otpBoxes[0].focus();
+        }
+
+        async function handleVerifyOTP(e) {
+            e.preventDefault();
+            const otpCode = getOTPValue();
+            const submitBtn = document.getElementById('btn-otp-submit');
+
+            if (otpCode.length !== 6) {
+                showToast('Masukkan 6 digit kode OTP secara lengkap.', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.querySelector('span').innerText = 'Memverifikasi...';
+
+            try {
+                const response = await apiFetch('/api/verify-otp', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: username,
+                        otp_code: otpCode
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    localStorage.setItem('aura_session_token', result.token);
+                    showToast('Kode OTP terverifikasi. Login sukses!', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1200);
+                } else {
+                    showToast(result.detail || result.message || 'OTP salah atau kedaluwarsa.', 'error');
+                    clearOTPInputs();
+                }
+            } catch (err) {
+                console.error(err);
+                if (err.message !== 'Unauthorized') {
+                    showToast('Gagal terhubung ke server.', 'error');
+                    clearOTPInputs();
+                }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').innerText = 'Verifikasi & Masuk';
+            }
+        }
+
+        function goBackToLogin() {
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

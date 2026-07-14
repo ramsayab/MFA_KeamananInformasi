@@ -1,9 +1,3 @@
-"""
-TUGAS ANGGOTA 2: VERIFIKASI OTP (One-Time Password) - IMPLEMENTASI REAL SQLITE & GMAIL SMTP
-========================================================================================
-Implementasi pembuatan dan verifikasi OTP yang aman menggunakan database SQLite
-dan pengiriman kode OTP secara real menggunakan SMTP Gmail.
-"""
 import time
 import sqlite3
 import secrets
@@ -16,16 +10,11 @@ DB_FILE = "bank.db"
 OTP_VALIDITY_SECONDS = 120  # OTP valid selama 2 menit (120 detik)
 
 def _get_conn() -> sqlite3.Connection:
-    """Membuka koneksi SQLite ke bank.db dengan foreign keys aktif."""
     conn = sqlite3.connect(DB_FILE)
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 def send_otp_email(to_email: str, otp_code: str) -> bool:
-    """
-    Mengirimkan email berisi kode OTP ke alamat tujuan menggunakan Gmail SMTP.
-    Menggunakan kredensial dari environment variables di .env.
-    """
     smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
     smtp_port_str = os.environ.get("SMTP_PORT", "587")
     try:
@@ -86,21 +75,8 @@ AURA BANK Security Operations Center
         return False
 
 def generate_otp(user_id: str) -> str:
-    """
-    Membuat kode OTP 6-digit acak aman untuk user, menyimpannya ke tabel `otps`,
-    dan mengirimkannya ke alamat email terdaftar user.
-    
-    Parameter:
-    - user_id (str): Username dari user yang sedang login.
-    
-    Mengembalikan:
-    - str: Kode OTP 6-digit yang dihasilkan.
-    """
-    # 1. Generate kode OTP 6-digit acak aman menggunakan modul secrets
     otp_code = "".join(secrets.choice("0123456789") for _ in range(6))
     expires_at = time.time() + OTP_VALIDITY_SECONDS
-    
-    # 2. Hubungkan ke SQLite dan simpan/timpa OTP di tabel 'otps'
     conn = _get_conn()
     try:
         cursor = conn.cursor()
@@ -109,8 +85,6 @@ def generate_otp(user_id: str) -> str:
             (user_id, otp_code, expires_at)
         )
         conn.commit()
-        
-        # 3. Ambil email pengguna dari tabel 'users' untuk dikirimi email OTP
         cursor.execute("SELECT email FROM users WHERE username = ?", (user_id,))
         row = cursor.fetchone()
         
@@ -129,24 +103,12 @@ def generate_otp(user_id: str) -> str:
     return otp_code
 
 def verify_otp(user_id: str, otp_code: str) -> bool:
-    """
-    Memverifikasi apakah kode OTP yang dimasukkan valid dan belum kedaluwarsa.
-    Jika valid, hapus OTP dari database (one-time use).
-    
-    Parameter:
-    - user_id (str): Username dari user.
-    - otp_code (str): Kode OTP yang dimasukkan oleh user.
-    
-    Mengembalikan:
-    - bool: True jika valid, False jika salah atau kedaluwarsa.
-    """
     now = time.time()
     conn = _get_conn()
     is_valid = False
     
     try:
         cursor = conn.cursor()
-        # Ambil data OTP dari database berdasarkan username
         cursor.execute(
             "SELECT otp_code, expires_at FROM otps WHERE username = ?",
             (user_id,)
@@ -155,10 +117,8 @@ def verify_otp(user_id: str, otp_code: str) -> bool:
         
         if row:
             db_otp_code, expires_at = row
-            # Periksa apakah kode cocok dan belum kedaluwarsa
             if db_otp_code == otp_code and now <= expires_at:
                 is_valid = True
-                # Hapus OTP karena sukses digunakan (One-time use)
                 cursor.execute("DELETE FROM otps WHERE username = ?", (user_id,))
                 conn.commit()
                 print(f"[SECURITY] OTP untuk {user_id} berhasil diverifikasi dan dihapus (sekali pakai).")
